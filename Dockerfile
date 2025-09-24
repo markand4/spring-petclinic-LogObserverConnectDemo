@@ -18,11 +18,12 @@ RUN groupadd -r appuser && \
 # Copy the pre-built JAR (assumes target/spring-petclinic-*.jar exists)
 COPY --chown=appuser:appuser target/spring-petclinic-*.jar app.jar
 
-# Copy existing AppDynamics agent directory
-COPY --chown=appuser:appuser appdynamics-agent/ appdynamics-agent/
+# Create directory structure for agents (users will download their own)
+RUN mkdir -p appdynamics-agent downloaded-agents && \
+    chown -R appuser:appuser appdynamics-agent downloaded-agents
 
-# Create downloaded-agents directory (for future use)
-RUN mkdir -p downloaded-agents && chown appuser:appuser downloaded-agents
+# Note: AppDynamics agent should be downloaded using download-agents.sh
+# before building the Docker image, or mounted as a volume
 
 # Copy entrypoint script
 COPY --chown=appuser:appuser petclinic-entrypoint.sh petclinic-entrypoint.sh

@@ -45,7 +45,30 @@ else
 fi
 
 echo ""
-echo "🏗️  Building application (optimized for Apple Silicon)..."
+echo "🏗️  Building Spring Boot application..."
+
+# Build the Java application first
+if command -v ./mvnw >/dev/null 2>&1; then
+    echo "📦 Building with Maven wrapper..."
+    ./mvnw clean package -DskipTests
+elif command -v mvn >/dev/null 2>&1; then
+    echo "📦 Building with system Maven..."
+    mvn clean package -DskipTests
+elif command -v ./gradlew >/dev/null 2>&1; then
+    echo "📦 Building with Gradle wrapper..."
+    ./gradlew build -x test
+elif command -v gradle >/dev/null 2>&1; then
+    echo "📦 Building with system Gradle..."
+    gradle build -x test
+else
+    echo "❌ No build tool found (Maven or Gradle required)"
+    echo "   Please install Maven or Gradle and try again"
+    exit 1
+fi
+
+echo "✅ Application built successfully!"
+echo ""
+echo "🐳 Building Docker image (optimized for Apple Silicon)..."
 
 # Build without platform constraints for best Apple Silicon performance
 # This allows Docker to use native ARM64 images when available
