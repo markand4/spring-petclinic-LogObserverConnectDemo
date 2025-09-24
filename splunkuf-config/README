@@ -1,0 +1,48 @@
+This folder is used for Splunk Universal Forwarder configuration in Docker Compose.
+
+## Dynamic Templating (Recommended)
+
+`outputs.conf.template` and `inputs.conf.template` are rendered at container startup using environment variables (via `envsubst`).
+
+- Place variables in your `secrets.env` or Docker Compose `environment` block.
+- Use `${VARNAME}` syntax in the `.template` files.
+- The rendered files are written to `/opt/splunkforwarder/etc/system/local/outputs.conf` and `inputs.conf` inside the container.
+
+**Do not mount static `outputs.conf` or `inputs.conf` directly.**
+
+### Example `outputs.conf.template`
+
+```
+[tcpout]
+defaultGroup=default-autolb-group
+
+[tcpout:default-autolb-group]
+server=${SPLUNK_INDEXER}:${SPLUNK_PORT}
+
+[tcpout-server://${SPLUNK_INDEXER}:${SPLUNK_PORT}]
+[indexAndForward]
+index = false
+```
+
+### Example `inputs.conf.template`
+
+```
+[monitor:///app/logs/spring.log]
+sourcetype=${SPLUNK_SOURCETYPE}
+index=${SPLUNK_INDEX}
+disabled = false
+```
+
+## Legacy/Static Config (Not Recommended)
+
+If you want to use static config, mount `outputs.conf` or `inputs.conf` directly, but this disables dynamic templating.
+
+## Files
+
+- `outputs.conf.template` — Template for outputs config (use env vars)
+- `inputs.conf.template` — Template for inputs config (use env vars)
+- `outputs.conf` — (Optional) Static config, not used with templating
+- `inputs.conf` — (Optional) Static config, not used with templating
+- `server.conf`, `web.conf` — Optional Splunk config files
+- `entrypoint.sh` — No longer needed (remove)
+

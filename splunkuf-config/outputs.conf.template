@@ -1,0 +1,9 @@
+[tcpout]
+defaultGroup=default-autolb-group
+
+[tcpout:default-autolb-group]
+server=$CONTROLLER
+
+[tcpout-server://$CONTROLLER]
+[indexAndForward]
+index = false

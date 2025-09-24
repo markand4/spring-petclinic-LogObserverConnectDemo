@@ -1,0 +1,21 @@
+# Docker Compose override for macOS compatibility
+# This file provides architecture-specific configurations for Mac users
+
+version: '3.8'
+
+services:
+  # For some third-party containers that don't have ARM64 versions,
+  # you may need to force AMD64 architecture (with emulation)
+  
+  # Uncomment the following if you experience issues with Splunk UF on Apple Silicon:
+  # splunkuf:
+  #   platform: linux/amd64
+  
+  # Uncomment the following if you experience issues with JMeter on Apple Silicon:
+  # jmeter:
+  #   platform: linux/amd64
+  
+  # The petclinic service should work natively on both Intel and Apple Silicon
+  # because it uses the eclipse-temurin Java base image which supports both architectures
+  
+  # PostgreSQL works natively on both architectures - no override needed

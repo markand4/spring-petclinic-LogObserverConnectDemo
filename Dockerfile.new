@@ -1,0 +1,68 @@
+# Multi-stage Dockerfile for better OS compatibility
+
+# Build stage - supports both Maven and Gradle
+FROM eclipse-temurin:17-jdk AS builder
+WORKDIR /build
+
+# Copy all source files
+COPY . .
+
+# Make wrapper scripts executable and build
+RUN chmod +x mvnw gradlew 2>/dev/null || true && \
+    if [ -f "pom.xml" ]; then \
+        echo "Building with Maven..." && \
+        ./mvnw clean package -DskipTests; \
+    elif [ -f "build.gradle" ]; then \
+        echo "Building with Gradle..." && \
+        ./gradlew clean bootJar -x test --no-daemon; \
+    else \
+        echo "No build file found!" && exit 1; \
+    fi
+
+# Runtime stage
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+# Install curl for health checks
+RUN apt-get update && \
+    apt-get install -y curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r appuser && \
+    useradd -r -g appuser appuser && \
+    mkdir -p /app/logs /app/agents && \
+    chown -R appuser:appuser /app
+
+# Copy the built JAR file
+RUN mkdir -p /tmp/jars
+COPY --from=builder /build/target/*.jar /tmp/jars/ 2>/dev/null || true
+COPY --from=builder /build/build/libs/*.jar /tmp/jars/ 2>/dev/null || true
+RUN if [ "$(ls -A /tmp/jars 2>/dev/null)" ]; then \
+        cp /tmp/jars/spring-petclinic*.jar /app/app.jar || \
+        cp /tmp/jars/*.jar /app/app.jar; \
+    else \
+        echo "ERROR: No JAR file found!" && exit 1; \
+    fi && \
+    rm -rf /tmp/jars && \
+    chown appuser:appuser /app/app.jar
+
+# Copy agents and scripts (these are optional)
+COPY --chown=appuser:appuser appdynamics-agent/ /app/appdynamics-agent/ 2>/dev/null || mkdir -p /app/appdynamics-agent
+COPY --chown=appuser:appuser downloaded-agents/ /app/downloaded-agents/ 2>/dev/null || mkdir -p /app/downloaded-agents
+COPY --chown=appuser:appuser petclinic-entrypoint.sh /app/petclinic-entrypoint.sh
+RUN chmod +x /app/petclinic-entrypoint.sh
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+# Default entrypoint
+ENTRYPOINT ["/app/petclinic-entrypoint.sh"]

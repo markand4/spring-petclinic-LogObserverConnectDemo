@@ -1,0 +1,18 @@
+[monitor:///app/logs/spring.log]
+sourcetype=$SOURCETYPE
+index=$INDEX
+disabled = false
+_meta = appd_app_name::LogObserverConnectEISDemo2 appd_tier_name::WebTier
+
+[monitor:///jmeter-logs/jmeter.log]
+sourcetype=$SOURCETYPE
+index=$INDEX
+disabled = false
+_meta = appd_app_name::LogObserverConnectEISDemo2 appd_tier_name::WebTier
+
+[monitor:///jmeter-logs/results.jtl]
+sourcetype=$SOURCETYPE
+index=$INDEX
+disabled = false
+_meta = appd_app_name::LogObserverConnectEISDemo2 appd_tier_name::WebTier
+

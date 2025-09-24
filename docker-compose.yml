@@ -1,0 +1,77 @@
+services:
+  splunkuf:
+    image: splunk/universalforwarder:8.2.9
+    environment:
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_START_ARGS=--accept-license
+    env_file:
+      - ./secrets.env
+    # Remove platform constraint to allow Docker to choose the best architecture
+    # platform: linux/amd64
+    volumes:
+      - ./splunkuf-config/rendered/:/opt/splunkforwarder/etc/system/local/:rw
+      - petclinic-logs:/app/logs:ro
+      - ./jmeter-logs:/jmeter-logs:ro
+  # entrypoint: ["/bin/sh"]
+
+  petclinic:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_OUTPUT_ANSI_ENABLED: ALWAYS
+      LOGGING_FILE_NAME: /app/logs/spring.log
+      logging.file.name: /app/logs/spring.log
+      appdynamics.agent.applicationName: LogObserverConnectEISDemo2
+    entrypoint: ["/app/petclinic-entrypoint.sh"]
+    volumes:
+      - petclinic-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    env_file:
+      - ./secrets.env
+    # Remove platform constraint - Java apps work well on both architectures
+    # platform: linux/amd64
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  jmeter:
+    image: justb4/jmeter:latest
+    depends_on:
+      petclinic:
+        condition: service_healthy
+    volumes:
+      - ./src/test/jmeter/petclinic_test_plan.jmx:/testplan.jmx:ro
+      - ./jmeter-logs:/jmeter-logs
+    entrypoint: sh
+    command: |
+      -c '
+      while true; do
+        jmeter -n -t /testplan.jmx -l /jmeter-logs/results.jtl -j /jmeter-logs/jmeter.log -JPETCLINIC_HOST=petclinic -JPETCLINIC_PORT=8080 -JTHREADS=1 -JLOOPS=10 -JRAMP=10
+        echo "Test run complete. Pausing for 10 seconds..."
+        sleep 10
+      done
+      '
+    # Remove platform constraint for better Apple Silicon compatibility
+    # platform: linux/amd64
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: petclinic
+      POSTGRES_USER: petclinic
+      POSTGRES_PASSWORD: petclinic
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  petclinic-logs:
+  postgres-data:
