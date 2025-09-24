@@ -11,7 +11,7 @@ stringData:
   port: "5432"
   database: "petclinic"
   username: "user"
-  password: "pass"
+  password: "pass"  # Demo password only - change for production
 
 ---
 apiVersion: v1
