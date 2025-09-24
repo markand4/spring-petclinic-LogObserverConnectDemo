@@ -31,17 +31,31 @@ download_appd_agent() {
     
     # Try to download (may require authentication)
     if curl -L -o "$AGENTS_DIR/appd-agent.zip" "$APPD_URL" 2>/dev/null; then
-        cd "$AGENTS_DIR"
-        unzip -q appd-agent.zip -d appdynamics-agent/
-        rm appd-agent.zip
-        echo "✅ AppDynamics Agent downloaded and extracted"
-    else
-        echo "⚠️  Automatic download failed. Please download manually:"
-        echo "   1. Visit: https://download.appdynamics.com/download/"
-        echo "   2. Download Java Agent"
-        echo "   3. Extract to: $AGENTS_DIR/appdynamics-agent/"
-        return 1
+        # Check if we got a real ZIP file (not an HTML login page)
+        if file "$AGENTS_DIR/appd-agent.zip" | grep -q "Zip archive"; then
+            cd "$AGENTS_DIR"
+            if unzip -q appd-agent.zip -d appdynamics-agent/ 2>/dev/null; then
+                rm appd-agent.zip
+                echo "✅ AppDynamics Agent downloaded and extracted"
+                return 0
+            fi
+        fi
+        # Clean up failed download
+        rm -f "$AGENTS_DIR/appd-agent.zip"
     fi
+    
+    echo "❌ Automatic download failed - authentication required"
+    echo ""
+    echo "🔐 AppDynamics requires account authentication for downloads"
+    echo "📋 Manual download instructions:"
+    echo "   1. Visit: https://download.appdynamics.com/download/"
+    echo "   2. Login with your AppDynamics credentials"
+    echo "   3. Search for 'Java Agent' or navigate to Java section"
+    echo "   4. Download 'AppDynamicsJavaAgent-${APPD_VERSION}.zip'"
+    echo "   5. Extract contents to: $AGENTS_DIR/appdynamics-agent/"
+    echo ""
+    echo "💡 Alternative: Use Splunk OpenTelemetry agent (no auth required)"
+    return 1
 }
 
 download_splunk_otel_agent() {
@@ -51,17 +65,22 @@ download_splunk_otel_agent() {
     
     # Get latest release info from GitHub API
     LATEST_RELEASE=$(curl -s https://api.github.com/repos/signalfx/splunk-otel-java/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-    OTEL_VERSION=${LATEST_RELEASE#v}  # Remove 'v' prefix if present
     
-    echo "Latest Splunk OTEL Java Agent version: $OTEL_VERSION"
+    echo "Latest Splunk OTEL Java Agent version: $LATEST_RELEASE"
     
-    OTEL_URL="https://github.com/signalfx/splunk-otel-java/releases/download/${LATEST_RELEASE}/splunk-otel-javaagent-${OTEL_VERSION}.jar"
+    # Use the correct filename from GitHub releases (no version suffix)
+    OTEL_URL="https://github.com/signalfx/splunk-otel-java/releases/download/${LATEST_RELEASE}/splunk-otel-javaagent.jar"
     
-    if curl -L -o "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent-${OTEL_VERSION}.jar" "$OTEL_URL"; then
-        echo "✅ Splunk OpenTelemetry Java Agent downloaded"
-        
-        # Create a symlink for easier reference
-        ln -sf "splunk-otel-javaagent-${OTEL_VERSION}.jar" "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent.jar"
+    if curl -L -o "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent.jar" "$OTEL_URL"; then
+        # Verify the download was successful (not just "Not Found")
+        if [ -s "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent.jar" ] && [ $(wc -c < "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent.jar") -gt 1000 ]; then
+            echo "✅ Splunk OpenTelemetry Java Agent downloaded successfully!"
+            echo "📊 File size: $(ls -lh "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent.jar" | awk '{print $5}')"
+        else
+            echo "❌ Download failed - received invalid file"
+            rm -f "$AGENTS_DIR/splunk-otel/splunk-otel-javaagent.jar"
+            return 1
+        fi
     else
         echo "❌ Failed to download Splunk OpenTelemetry Java Agent"
         return 1

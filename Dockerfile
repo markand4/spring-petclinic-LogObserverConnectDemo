@@ -18,12 +18,15 @@ RUN groupadd -r appuser && \
 # Copy the pre-built JAR (assumes target/spring-petclinic-*.jar exists)
 COPY --chown=appuser:appuser target/spring-petclinic-*.jar app.jar
 
-# Create directory structure for agents (users will download their own)
+# Create directory structure for agents and copy any downloaded ones
 RUN mkdir -p appdynamics-agent downloaded-agents && \
     chown -R appuser:appuser appdynamics-agent downloaded-agents
 
-# Note: AppDynamics agent should be downloaded using download-agents.sh
-# before building the Docker image, or mounted as a volume
+# Copy downloaded agents if they exist (conditional copy)
+COPY --chown=appuser:appuser downloaded-agents/ downloaded-agents/
+
+# Note: AppDynamics agent requires authentication and manual download
+# Splunk OpenTelemetry agent can be downloaded with download-agents.sh
 
 # Copy entrypoint script
 COPY --chown=appuser:appuser petclinic-entrypoint.sh petclinic-entrypoint.sh
